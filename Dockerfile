@@ -18,6 +18,22 @@ ARG ARCH
 ARG binary=./bin/${ARCH}/nfsplugin
 COPY ${binary} /nfsplugin
 
-RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates mount nfs-common netbase
+RUN apt update && apt upgrade -y && apt-mark unhold libcap2 && clean-install ca-certificates mount nfs-common sshfs netbase
 
-ENTRYPOINT ["/nfsplugin"]
+RUN sed -i'' -e's/^NEED_STATD=$/NEED_STATD="yes"/' /etc/default/nfs-common
+
+RUN mkdir /root/.ssh
+COPY ssh/datalayer-jump /root/.ssh/id_rsa
+COPY ssh/datalayer-jump.pub /root/.ssh/id_rsa.pub
+RUN cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
+RUN chmod 400 /root/.ssh/id_rsa
+RUN chown -R root:root /root/.ssh
+RUN chmod 700 /root/.ssh
+
+RUN mkdir -p /etc/ssh/sshd_config.d
+RUN echo "Port 2223" >> /etc/ssh/sshd_config.d/port.conf
+
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+ENTRYPOINT ["/start.sh"]
